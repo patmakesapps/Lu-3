@@ -72,7 +72,9 @@ CASTER_Y = -60.0
 EYE_Z = 320.0
 IND_Z, IND_AZ = 313.0, math.radians(40)
 SPK_Z = 165.0
-JETSON_Y = 42.6                           # Jetson origin (its feet sit in 6 mm standoffs)
+JP_Y = 33.0                               # Jetson plate front face (plate is JP_Y..JP_Y+3)
+JETSON_Y = JP_Y + 3 + 6 - 3.4             # Jetson origin (its feet sit in 6 mm standoffs)
+DC_JACK = (42.0, JETSON_Y + 10.5, 149.5)  # barrel-jack mouth (faces down)
 
 # hardware (check against your insert kit)
 M2_INSERT_R, M3_INSERT_R = 1.6, 2.0       # 3.2 / 4.0 mm holes
@@ -323,6 +325,9 @@ def clear_root():
     for me in list(bpy.data.meshes):
         if me.users == 0 and me.name.startswith(PREFIX):
             bpy.data.meshes.remove(me)
+    for ng in list(bpy.data.node_groups):
+        if ng.users == 0 and ng.name.startswith(PREFIX):
+            bpy.data.node_groups.remove(ng)
 
 
 def find_layer_coll(lc, name):
@@ -500,7 +505,7 @@ def build_body(c):
     engrave_on_cylinder(shell, "Text_Lumalien", [("LUMALIEN", 12, 128, 1.05),
                                                  ("ROBOTICS", 8, 111, 1.3)], PI)
     add_rails(shell, "Rack", -20, -17, 155, 236)
-    add_rails(shell, "Jetson_Plate", 37, 40, 145, 232)
+    add_rails(shell, "Jetson_Plate", JP_Y, JP_Y + 3, 145, 232)
 
     # ---- bands, pillars
     printed("P_Body_Band_Bottom", c, lambda p: p.ring(BODY_R + 0.2, BODY_R + 1.7, 6,
@@ -583,16 +588,16 @@ def build_body(c):
                          M3_INSERT_R, 11))
 
     # ---- Jetson plate
-    jp = printed("P_Jetson_Plate", c, lambda p: p.box((124, 3, 87), (0, 38.5, 188.5), BK),
+    jp = printed("P_Jetson_Plate", c, lambda p: p.box((124, 3, 87), (0, JP_Y + 1.5, 188.5), BK),
                  BK, "Flat, standoffs up.",
                  "Slides down into rails on the shell wall (glue optional). 4x M2 inserts in "
                  "the 6 mm standoffs (86 x 58 pattern - "
                  "measure your Jetson first). Centre cut-out for airflow and cables.")
-    jholes = [(sx * 43, 46, 190 + sz * 29) for sx in (-1, 1) for sz in (-1, 1)]
-    union(jp, helper("Jetson_Standoffs", lambda p: [p.cyl(3.5, 7, (x, 42.5, z), W, axis="Y")
+    jholes = [(sx * 43, JP_Y + 9, 190 + sz * 29) for sx in (-1, 1) for sz in (-1, 1)]
+    union(jp, helper("Jetson_Standoffs", lambda p: [p.cyl(3.5, 7, (x, JP_Y + 5.5, z), W, axis="Y")
                                                     for x, _, z in jholes]))
     cut(jp, outside_trim("Jetson_Plate_Trim", BODY_RI - 0.3),
-        helper("Jetson_Plate_Window", lambda p: p.box((50, 10, 40), (0, 38.5, 190), W)),
+        helper("Jetson_Plate_Window", lambda p: p.box((50, 10, 40), (0, JP_Y + 1.5, 190), W)),
         insert_holes("Jetson_Inserts", jholes, M2_INSERT_R, 6, axis="Y"))
 
     # ---- board rack
@@ -757,16 +762,22 @@ def build_legs(c):
 
         leg = printed(f"P_Leg_{s}", c, lambda p: leg_section(p, x, LEG_SOCKET_Z, LEG_TOP_Z + 5,
                                                              0, W),
-                      W, "Upright on the socket end (194 mm tall) so the rounded top prints "
-                         "cleanly; speaker pocket roof is a 46 mm bridge - fine on the A1. Brim "
-                         "recommended.",
+                      W, "Lie on the flat inner face (the side against the body): speaker "
+                         "pocket opens up, the visible outer face prints as the top surface. "
+                         "No supports.",
                       "Bottom glues into the foot socket. Speaker drops into the pocket and is "
                       "held by 2 zip-ties in the side grooves. Wire channel runs from the foot "
                       "up into the shoulder bore.")
 
         top_z = LEG_TOP_Z + 5
-        bevel_edges(leg, lambda a, b: 1.0 if min(a.z, b.z) > top_z - 0.1 else
-                    (0.3 if abs(a.z - b.z) > 1 else 0.0), width=10)
+        inner_x = LEG_X - LEG_T / 2              # |x| of the inner face (prints on the bed)
+
+        def leg_weight(a, b):
+            if min(a.z, b.z) > top_z - 0.1:      # top edges: 10 mm round ...
+                on_bed = abs(abs(a.x) - inner_x) < 0.1 and abs(abs(b.x) - inner_x) < 0.1
+                return 0.3 if on_bed else 1.0    # ... except the one touching the bed: 3 mm
+            return 0.3 if abs(a.z - b.z) > 1 else 0.0
+        bevel_edges(leg, leg_weight, width=10)
 
         def zip_grooves(p):
             for gx in (-41, 41):
@@ -873,8 +884,15 @@ def build_electronics(c):
     place(P["aa_pack"](c, (0, 0, 0)), (0, -27, 117), (PI / 2, 0, 0))
     place(P["motor_bonnet"](c, (0, 0, 0)), (0, -42, 215), (PI / 2, 0, 0))
     place(P["pca9685"](c, (0, 0, 0)), (0, -42, 175), (PI / 2, 0, 0))
-    place(P["usb_audio"](c, (0, 0, 0)), (2.5, 59.5, 121.5), (0, PI / 2, 0))
-    place(P["usb_mic"](c, (0, 0, 0)), (-10, 56.0, 147.5), (-PI / 2, 0, 0))
+    place(P["usb_audio"](c, (0, 0, 0)), (2.5, JETSON_Y + 16.9, 121.5), (0, PI / 2, 0))
+    place(P["usb_mic"](c, (0, 0, 0)), (-10, JETSON_Y + 13.4, 147.5), (-PI / 2, 0, 0))
+    plug = Part("DC_Barrel_Plug_Adafruit_5451")   # straight plug in the Jetson DC jack
+    jx, jy, jz = DC_JACK
+    plug.cyl(2.75, 9.5, (jx, jy, jz + 4.75), "Metal")
+    plug.cyl(5.0, 22, (jx, jy, jz - 11), "Plastic_Black")
+    plug.cyl(2.0, 25, (jx, jy, jz - 34.5), "Plastic_Black")
+    plug.build(c, props={"notes": "Straight 5.5 x 2.5 plug + cable; needs ~50 mm below the "
+                                  "jack. Cable runs to the bank USB-C1."}).name = "A_DC_Barrel_Plug"
     place(P["mg90s"](c, (0, 0, 0), "MG90S_Head"), (SERVO_XY[0] - 5.4, SERVO_XY[1], 267.6))
     place(P["arducam"](c, (0, 0, 0)), (0, -57.2, 301))
     place(neopixel_ring(c, (0, 0, 0)), Matrix.Rotation(IND_AZ, 4, "Z") @ Vector((0, -80, IND_Z)),
@@ -915,6 +933,7 @@ def build_droid():
         if lc:
             lc.hide_viewport = True
     smooth_all()
+    build_plates(get_coll("Print Plates", root))
     return root
 
 
@@ -931,6 +950,202 @@ def smooth_all(angle=math.radians(35)):
         with bpy.context.temp_override(object=ob, active_object=ob, selected_objects=[ob],
                                        selected_editable_objects=[ob]):
             bpy.ops.object.shade_auto_smooth(use_auto_smooth=True, angle=angle)
+
+
+# ----------------------------------------------------------------------------- print plates
+
+BED, BED_MARGIN, BED_GAP = 256.0, 5.0, 8.0
+SOLO = {"Body_Shell", "Dome"}                     # the two big prints get a plate each
+PLATE_GROUPS = {}                                 # label -> group name for dedicated plates
+RING_HOLE_R = {"Head_Collar": BODY_RI, "Body_Band_Bottom": BODY_R + 0.2,
+               "Body_Band_Top": BODY_R + 0.2, "Head_Band": BODY_R + 0.2}
+
+
+def _rot(axis, deg):
+    return Matrix.Rotation(math.radians(deg), 4, axis)
+
+
+def print_orientation(name, centroid):
+    """World-space rotation that puts a part into its recommended print orientation."""
+    side = 1 if name.endswith("_R") else -1
+    if name == "P_Mast_Cap":
+        return _rot("X", 180)                                   # wide end down
+    if name.startswith(("P_Hip_Block", "P_Leg_")):
+        return _rot("Y", -90 * side)                            # inner face down
+    if name == "P_Jetson_Plate":
+        return _rot("X", 90)                                    # standoffs up
+    if name == "P_Board_Rack":
+        return _rot("X", -90)
+    if name in ("P_Eye_Pod", "P_Lens_Hood"):
+        return _rot("X", 90)                                    # front face down
+    if name in ("P_Indicator_Pod", "P_Indicator_Lens"):
+        return _rot("X", 90) @ _rot("Z", -math.degrees(IND_AZ))
+    if name.startswith(("P_Shoulder_L", "P_Shoulder_R", "P_Logo_Inlay")):
+        return _rot("Y", -90 * side)                            # back down, face up
+    if name.startswith(("P_Shoulder_Axle", "P_Wheel_Hub", "P_Wheel_Tire")):
+        return _rot("Y", 90)
+    if name == "P_Window_Pillars":
+        return _rot("X", 90 if centroid.y < 0 else -90)         # flat outer face down
+    return Matrix.Identity(4)                                   # already print-ready
+
+
+def _measure(ob, dg, R, keep=None):
+    """Footprint / height / rough print time of a part in print orientation.
+    keep: None or (y_sign, x_sign) - one quadrant of a multi-piece part."""
+    e = ob.evaluated_get(dg)
+    src = e.to_mesh()
+    bm = bmesh.new()
+    bm.from_mesh(src)
+    bm.transform(ob.matrix_world)
+    e.to_mesh_clear()
+    if keep:
+        ysg, xsg = keep
+        drop = [f for f in bm.faces if (f.calc_center_median().y < 0) != (ysg < 0)
+                or (f.calc_center_median().x < 0) != (xsg < 0)]
+        bmesh.ops.delete(bm, geom=drop, context="FACES")
+    bm.transform(R)
+    xs, ys, zs = ([v.co[i] for v in bm.verts] for i in range(3))
+    vol = bm.calc_volume()
+    area = sum(f.calc_area() for f in bm.faces)
+    bm.free()
+    shell = min(vol, area * 0.9)
+    est = (shell + 0.15 * max(0.0, vol - shell)) / 9.0 * (1.2 if ob.name == "P_Dome" else 1)
+    return max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs), est
+
+
+def live_copy(name, src, R, coll, loc, keep=None):
+    """Plate copy that is a live view of `src`: Geometry Nodes reads the part's current
+    (evaluated) shape, rotates it into print orientation and sets it on the bed corner at the
+    object's origin. Edit the part and the plate copy follows - there is only ever one version."""
+    me = bpy.data.meshes.new(PREFIX + "PR_" + name)
+    ob = bpy.data.objects.new("PR_" + name, me)
+    ob.location = loc
+    coll.objects.link(ob)
+    ng = bpy.data.node_groups.new(PREFIX + "PR_" + name, "GeometryNodeTree")
+    ng.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+    N, L = ng.nodes, ng.links
+    out = N.new("NodeGroupOutput")
+    oi = N.new("GeometryNodeObjectInfo")
+    oi.transform_space = "RELATIVE"                  # world shape, offset by this object's loc
+    oi.inputs["Object"].default_value = src
+    geo = oi.outputs["Geometry"]
+    if keep:                                         # one quadrant of a multi-piece part
+        pos, sep = N.new("GeometryNodeInputPosition"), N.new("ShaderNodeSeparateXYZ")
+        L.new(pos.outputs[0], sep.inputs[0])
+        both = N.new("FunctionNodeBooleanMath")
+        both.operation = "AND"
+        for k, (axis, sign, origin) in enumerate((("Y", keep[0], loc[1]), ("X", keep[1], loc[0]))):
+            cmp = N.new("FunctionNodeCompare")
+            cmp.data_type = "FLOAT"
+            cmp.operation = "LESS_THAN" if sign < 0 else "GREATER_EQUAL"
+            cmp.inputs[1].default_value = -origin    # world axis = 0 in relative space
+            L.new(sep.outputs[axis], cmp.inputs[0])
+            L.new(cmp.outputs[0], both.inputs[k])
+        sg = N.new("GeometryNodeSeparateGeometry")
+        sg.domain = "FACE"
+        L.new(both.outputs[0], sg.inputs["Selection"])
+        L.new(geo, sg.inputs["Geometry"])
+        geo = sg.outputs["Selection"]
+    rot = N.new("GeometryNodeTransform")
+    rot.inputs["Rotation"].default_value = R.to_euler()
+    L.new(geo, rot.inputs["Geometry"])
+    bb = N.new("GeometryNodeBoundBox")
+    L.new(rot.outputs[0], bb.inputs[0])
+    neg = N.new("ShaderNodeVectorMath")
+    neg.operation = "SCALE"
+    neg.inputs["Scale"].default_value = -1.0
+    L.new(bb.outputs["Min"], neg.inputs[0])
+    drop = N.new("GeometryNodeTransform")            # min corner -> origin (sits on the bed)
+    L.new(rot.outputs[0], drop.inputs["Geometry"])
+    L.new(neg.outputs[0], drop.inputs["Translation"])
+    L.new(drop.outputs[0], out.inputs[0])
+    ob.modifiers.new("print_orientation", "NODES").node_group = ng
+    return ob
+
+
+def build_plates(coll):
+    """Lay every printed part on A1-sized plates (one colour per plate) beside the droid.
+    Plate copies are live (see live_copy); re-running the build re-packs the plates."""
+    P["MATS"]["Bed"] = (0.16, 0.16, 0.18, 1)
+    bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get()
+    items = []                                       # (label, colour, src, R, keep, w, d, h, est)
+    for ob in sorted(printed_objects(), key=lambda o: o.name):
+        if ob.name == "P_Window_Pillars":              # 4 separate strips
+            pieces = [((ys, xs), ("_Front" if ys < 0 else "_Back") + ("L" if xs < 0 else "R"))
+                      for ys in (-1, 1) for xs in (-1, 1)]
+        else:
+            pieces = [(None, "")]
+        for keep, suffix in pieces:
+            R = print_orientation(ob.name, Vector((0, keep[0] if keep else 0, 0)))
+            w, d, h, est = _measure(ob, dg, R, keep)
+            items.append((ob.name[2:] + suffix, ob["colour"], ob, R, keep, w, d, h, est))
+    usable = BED - 2 * BED_MARGIN
+    # plate = {"colour", "placed": [(item, x, y)], "bins": [bin], "solo"}
+    # bin = [x0, y0, width, depth, shelves]; ring parts add a bin inside their hole
+    plates = []
+
+    def fit(bin_, w, d):
+        x0, y0, bw, bd, shelves = bin_
+        for sh in shelves:                        # sh = [y, height, x_cursor]
+            if d <= sh[1] and sh[2] + w <= bw:
+                pos = (x0 + sh[2], y0 + sh[0])
+                sh[2] += w + BED_GAP
+                return pos
+        y = (shelves[-1][0] + shelves[-1][1] + BED_GAP) if shelves else 0.0
+        if y + d <= bd and w <= bw:
+            shelves.append([y, d, w + BED_GAP])
+            return (x0, y0 + y)
+        return None
+
+    def put(plate, it, ww, dd, RR, pos):
+        label, colour, src, R, keep, w, d, h, est = it
+        plate["placed"].append(((label, colour, src, RR, keep, ww, dd, h, est), *pos))
+        if label in RING_HOLE_R:                  # nest small parts inside the ring
+            side = math.sqrt(2) * (RING_HOLE_R[label] - 3.0)
+            plate["bins"].insert(0, [pos[0] + (ww - side) / 2, pos[1] + (dd - side) / 2,
+                                     side, side, []])
+
+    for colour in ("White PLA", "Black PLA", "Purple PLA", "Clear PLA"):
+        group = sorted([it for it in items if it[1] == colour], key=lambda it: -max(it[5], it[6]))
+        for it in group:
+            label, _, src, R, keep, w, d, h, est = it
+            options = sorted([(w, d, R), (d, w, _rot("Z", 90) @ R)], key=lambda o: o[1])
+            done = False
+            group_ = PLATE_GROUPS.get(label)
+            if label not in SOLO:
+                for plate in [pl for pl in plates if pl["colour"] == colour and not pl["solo"]
+                              and pl["group"] == group_]:
+                    for bin_ in plate["bins"]:
+                        for ww, dd, RR in options:
+                            pos = fit(bin_, ww, dd)
+                            if pos:
+                                put(plate, it, ww, dd, RR, pos)
+                                done = True
+                                break
+                        if done:
+                            break
+                    if done:
+                        break
+            if not done:
+                plate = {"colour": colour, "placed": [], "solo": label in SOLO, "group": group_,
+                         "bins": [[0.0, 0.0, usable, usable, []]]}
+                plates.append(plate)
+                ww, dd, RR = max(options, key=lambda o: o[0])
+                put(plate, it, ww, dd, RR, fit(plate["bins"][-1], ww, dd))
+    plates = [(pl["colour"], pl["placed"]) for pl in plates]
+    for i, (colour, placed) in enumerate(plates):
+        ox, oy = 330.0 + (i % 4) * 300.0, 128.0 - (i // 4) * 340.0
+        mk(f"Plate_{i + 1}", coll, lambda p: p.box((BED, BED, 1), (BED / 2, BED / 2, -0.5), "Bed"),
+           loc=(ox, oy - BED, 0))
+        for it, x, y in placed:
+            live_copy(it[0], it[2], it[3], coll,
+                      (ox + BED_MARGIN + x, oy - BED + BED_MARGIN + y, 0), it[4])
+        hmax = max(it[7] for it, _, _ in placed)
+        secs = sum(it[8] for it, _, _ in placed) + hmax / 0.2 * 2 + 90
+        P["label"](f"Plate {i + 1} - {colour}" + "\n" + f"~{secs / 3600:.1f} h, {len(placed)} parts",
+                   (ox + BED / 2, oy - BED - 12, 0), coll, size=9)
+    return plates
 
 
 # ----------------------------------------------------------------------------- export
