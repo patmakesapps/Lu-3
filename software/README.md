@@ -89,9 +89,11 @@ The tools so far:
 To add a tool, write the function in `lu3/tools.py`, add it to `TOOL_FUNCTIONS`, and add its
 schema to `TOOL_DEFINITIONS`.
 
-Status: the plumbing works, but the current model does not reliably call tools. Adding an
-extra system prompt to push it toward tool calls was tried and removed, because the system
-prompt has to match training. The model needs to be retrained with tool-calling examples.
+Status: the current model was trained on `get_time` and `get_machine_info` and calls them
+well. It has not been trained on the memory tools: in a hands-on test it said "I'll remember"
+without calling `remember`, saved nothing on its own, and ignored what `recall` returned. The
+findings and the plan for the next training round are in `NEXT_ROUND.md` in the `lu3-finetune`
+repo. Retraining waits until the robot's full tool list exists.
 
 ## Memory
 
