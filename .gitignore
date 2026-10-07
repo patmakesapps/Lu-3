@@ -4,3 +4,7 @@
 __pycache__/
 # STL exports are generated from build_droid.py when the design is final
 stl/
+
+# Runtime model files (download from Hugging Face) and llama-server logs
+software/models/
+software/logs/
