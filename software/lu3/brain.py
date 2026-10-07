@@ -37,17 +37,9 @@ class Conversation:
 
     def reply(self):
         """Run Lu's agent loop using the current conversation."""
+        # Same system prompt the model was trained with; llama-server adds the
+        # tools section from TOOL_DEFINITIONS, just as in training.
         system_prompt = self.config["system_prompt"]
-        system_prompt += (
-            " You can request tools through the tool-calling interface."
-            " When asked for the current date or time, call get_time."
-            " When asked about the machine running you, call get_machine_info."
-            " Wait for the tool result before answering those questions."
-            " Never invent a tool result or claim execution without a result."
-            " Use structured tool calls, not placeholders in your spoken reply."
-            " The short spoken style and no-symbols rule apply only to your"
-            " final answer, not to structured tool calls."
-        )
         if self.child_mode:
             system_prompt += " " + self.config["child_note"]
 
