@@ -1,8 +1,6 @@
-"""Lu's side of a conversation: history, the age guard, and streamed replies from llama-server."""
-import json
-import urllib.request
-
+"""Lu's conversation history, age guard, and replies."""
 from .age_guard import stated_minor
+from .model import request_completion
 
 
 class Conversation:
@@ -31,41 +29,19 @@ class Conversation:
         return child_mode_started
 
     def reply(self):
-        """Stream Lu's reply to the last thing heard, as pieces of text.
-
-        The full reply is added to the history once the stream ends.
-        """
+        """Generate a reply using the current conversation and child mode."""
         system_prompt = self.config["system_prompt"]
         if self.child_mode:
             system_prompt += " " + self.config["child_note"]
 
-        payload = {
-            "messages": [{"role": "system", "content": system_prompt}] + self.history,
-            "stream": True,
-            "max_tokens": self.config["max_reply_tokens"],
-            "temperature": self.config["temperature"],
-            "top_p": self.config["top_p"],
-            "top_k": self.config["top_k"],
-            "repeat_penalty": self.config["repeat_penalty"],
-            # Lu was trained with Qwen3's thinking off; keep it off when chatting.
-            "chat_template_kwargs": {"enable_thinking": False},
-        }
-        request = urllib.request.Request(
-            f"{self.server_url}/v1/chat/completions",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ] + self.history
+
+        message = request_completion(
+            self.server_url, self.config, messages
         )
+        text = (message.get("content") or "").strip()
 
-        pieces = []
-        with urllib.request.urlopen(request, timeout=300) as response:
-            for line in response:
-                line = line.decode("utf-8").strip()
-                if not line.startswith("data: ") or line == "data: [DONE]":
-                    continue
-                choices = json.loads(line[len("data: "):]).get("choices") or [{}]
-                piece = choices[0].get("delta", {}).get("content")
-                if piece:
-                    pieces.append(piece)
-                    yield piece
-
-        self.history.append({"role": "assistant", "content": "".join(pieces).strip()})
+        self.history.append({"role": "assistant", "content": text})
+        yield text
