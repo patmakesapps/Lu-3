@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from . import memory
 from .brain import Conversation
 from .server import LlamaServer
 
@@ -24,6 +25,7 @@ server = LlamaServer(args.server, args.model, args.port, config["context_size"],
                      software_dir / "logs" / "llama-server.log")
 
 print(f"Starting llama-server with {Path(args.model).name} ...")
+memory.connect(software_dir / config["memory_db"])
 with server:
     conversation = Conversation(config, server.url)
     print("Lu is listening. Commands: /reset, /quit")
