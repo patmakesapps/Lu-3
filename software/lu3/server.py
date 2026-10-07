@@ -40,7 +40,7 @@ class LlamaServer:
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         log = self.log_path.open("w", encoding="utf-8")
         command = [self.executable, "-m", str(self.model), "--port", str(self.port),
-                   "-c", str(self.context_size), "--no-webui"]
+                   "-c", str(self.context_size), "-ngl", "99", "--no-webui"]
         try:
             self.process = subprocess.Popen(command, stdout=log, stderr=subprocess.STDOUT)
         except FileNotFoundError:
