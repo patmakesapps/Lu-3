@@ -1,6 +1,6 @@
 """Lu's conversation history, age guard, and replies."""
 from .age_guard import stated_minor
-from .model import request_completion
+from .agent import run_agent
 
 
 class Conversation:
@@ -25,12 +25,29 @@ class Conversation:
             self.history, self.child_mode = [], True
             child_mode_started = True
         self.history.append({"role": "user", "content": user_text})
-        self.history = self.history[-(self.config["history_exchanges"] * 2 - 1):]
+        user_positions = [
+            index
+            for index, message in enumerate(self.history)
+            if message["role"] == "user"
+        ]
+        keep = self.config["history_exchanges"]
+        if len(user_positions) > keep:
+            self.history = self.history[user_positions[-keep]:]
         return child_mode_started
 
     def reply(self):
-        """Generate a reply using the current conversation and child mode."""
+        """Run Lu's agent loop using the current conversation."""
         system_prompt = self.config["system_prompt"]
+        system_prompt += (
+            " You can request tools through the tool-calling interface."
+            " When asked for the current date or time, call get_time."
+            " When asked about the machine running you, call get_machine_info."
+            " Wait for the tool result before answering those questions."
+            " Never invent a tool result or claim execution without a result."
+            " Use structured tool calls, not placeholders in your spoken reply."
+            " The short spoken style and no-symbols rule apply only to your"
+            " final answer, not to structured tool calls."
+        )
         if self.child_mode:
             system_prompt += " " + self.config["child_note"]
 
@@ -38,10 +55,7 @@ class Conversation:
             {"role": "system", "content": system_prompt}
         ] + self.history
 
-        message = request_completion(
-            self.server_url, self.config, messages
-        )
-        text = (message.get("content") or "").strip()
+        text = run_agent(self.server_url, self.config, messages)
 
-        self.history.append({"role": "assistant", "content": text})
-        yield text
+        self.history = messages[1:]
+        yield text.strip()
