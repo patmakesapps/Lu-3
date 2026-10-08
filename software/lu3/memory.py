@@ -28,12 +28,12 @@ CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(text);
 # Rows a search or edit may touch: all of them, or only this session's in child mode.
 IN_SCOPE = "(? = 0 OR session = ?)"
 
-# Words too common to say what a message is about. Searches skip them, so "I" and "the"
-# don't match nearly every memory.
+# Words too common to say what a message is about, plus "lu", which starts most messages.
+# Searches skip them, so "I" and "the" don't match nearly every memory.
 STOPWORDS = set("""
 a about after again all also am an and any are as at be because been before being but by can
 could did do does doing don't for from get got had has have having he her here hers him his how
-i i'd i'll i'm i've if in into is isn't it it's its just know let's like me more most my no not
+i i'd i'll i'm i've if in into is isn't it it's its just know let's like lu me more most my no not
 now of off oh ok okay on one only or our out over really remember say she so some still tell
 than that that's the their them then there these they think this those to too up us very was
 we well were what what's when where which who why will with would yeah yes you you're your
