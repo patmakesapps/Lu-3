@@ -91,9 +91,9 @@ schema to `TOOL_DEFINITIONS`.
 
 Status: the current model was trained on `get_time` and `get_machine_info` and calls them
 well. It has not been trained on the memory tools: in a hands-on test it said "I'll remember"
-without calling `remember`, saved nothing on its own, and ignored what `recall` returned. The
-findings and the plan for the next training round are in `NEXT_ROUND.md` in the `lu3-finetune`
-repo. Retraining waits until the robot's full tool list exists.
+without calling `remember`, saved nothing on its own, and ignored what `recall` returned. A
+memory-tools training round (all seven tools, 625 memory conversations) is in training; the
+data and findings are described in the `lu3-finetune` repo's README.
 
 ## Memory
 
