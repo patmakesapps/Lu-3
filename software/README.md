@@ -92,8 +92,11 @@ schema to `TOOL_DEFINITIONS`.
 Status: the current model (the memory-tools round) is trained on all seven tools and calls
 them well. In a hands-on test it saved a company name, a pet's name, and a weekend plan with
 the exact confirmation lines, saved nothing from small talk, and called `get_time`, `forget`,
-and `list_memories` when it should have. The weak spots it showed, and what the next training
-round should focus on, are in the `lu3-finetune` repo's README under "Next round".
+and `list_memories` when it should have. A long red-team chat also showed it going along with
+drinking, drugs, and driving before refusing, so it isn't ready for a home without a filter in
+front of it. These findings, and what the next training round should focus on, are in the
+`lu3-finetune` repo's README under "Next round". That round waits for the Jetson and the
+robot's production tools.
 
 ## Memory
 
