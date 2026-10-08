@@ -31,6 +31,7 @@ TOOL_FUNCTIONS = {
     "get_machine_info": get_machine_info,
     "remember": memory.remember,
     "recall": memory.recall,
+    "list_memories": memory.list_memories,
     "update_memory": memory.update_memory,
     "forget": memory.forget,
 }
@@ -89,6 +90,18 @@ TOOL_DEFINITIONS = [
                     "query": {"type": "string", "description": "Words to search for."},
                 },
                 "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_memories",
+            "description": "List your newest saved memories and how many you have in all.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
             },
         },
     },

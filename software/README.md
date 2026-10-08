@@ -84,7 +84,7 @@ The tools so far:
 
 - `get_time`: the local date, time, and timezone.
 - `get_machine_info`: hostname, operating system, CPU architecture, and Python version.
-- `remember`, `recall`, `update_memory`, `forget`: Lu's memory (see below).
+- `remember`, `recall`, `list_memories`, `update_memory`, `forget`: Lu's memory (see below).
 
 To add a tool, write the function in `lu3/tools.py`, add it to `TOOL_FUNCTIONS`, and add its
 schema to `TOOL_DEFINITIONS`.
@@ -112,9 +112,11 @@ How it is used:
 1. On startup Lu resumes the newest session and reloads its recent messages into the history.
 2. Every message is saved as it happens.
 3. Before each reply, up to five memories matching the latest message are added to the system
-   prompt after "Things you remember:", so Lu has them without calling a tool.
+   prompt after "Things you remember:", so Lu has them without calling a tool. Common words
+   ("I", "the", "what") are skipped when searching, so they don't match every memory.
 4. During a reply Lu can `remember` something new, `recall` (search memories and past
-   conversations), `update_memory` to correct one, or `forget` one.
+   conversations), `list_memories` (the newest 20 and the total count), `update_memory` to
+   correct one, or `forget` one.
 
 In a child-mode session, searches and edits only see that session's own messages and memories,
 so nothing from an earlier conversation can come back. Child mode survives a restart.
