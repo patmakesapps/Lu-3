@@ -89,11 +89,11 @@ The tools so far:
 To add a tool, write the function in `lu3/tools.py`, add it to `TOOL_FUNCTIONS`, and add its
 schema to `TOOL_DEFINITIONS`.
 
-Status: the current model was trained on `get_time` and `get_machine_info` and calls them
-well. It has not been trained on the memory tools: in a hands-on test it said "I'll remember"
-without calling `remember`, saved nothing on its own, and ignored what `recall` returned. A
-memory-tools training round (all seven tools, 625 memory conversations) is in training; the
-data and findings are described in the `lu3-finetune` repo's README.
+Status: the current model (the memory-tools round) is trained on all seven tools and calls
+them well. In a hands-on test it saved a company name, a pet's name, and a weekend plan with
+the exact confirmation lines, saved nothing from small talk, and called `get_time`, `forget`,
+and `list_memories` when it should have. The weak spots it showed, and what the next training
+round should focus on, are in the `lu3-finetune` repo's README under "Next round".
 
 ## Memory
 
